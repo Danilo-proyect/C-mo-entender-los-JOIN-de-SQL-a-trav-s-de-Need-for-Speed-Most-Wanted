@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Escalando la Blacklist 15: los JOIN de SQL</title>
+<link href="https://fonts.googleapis.com/css2?family=Teko:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0d11;--pn:rgba(14,17,22,.92);--pn2:#171c24;--ln:#303846;--tx:#e9ecf1;--mut:#97a1b1;--am:#f5a300;--am2:#ffcf4d;--bl:#3b7dff;--rd:#e0202c;--gr:#4bd685;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 58px);scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--tx);font:17px/1.7 'Barlow',system-ui,sans-serif;
+background-image:radial-gradient(ellipse at 50% -10%,rgba(59,125,255,.22),transparent 60%),repeating-linear-gradient(0deg,rgba(255,255,255,.022) 0 1px,transparent 1px 4px)}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.65));z-index:5}
+.cut{clip-path:polygon(0 0,calc(100% - 18px) 0,100% 18px,100% 100%,18px 100%,0 calc(100% - 18px))}
+h1,h2,h3,.t{font-family:'Teko','Impact',sans-serif;font-weight:600;text-transform:uppercase;line-height:.95;margin:0}
+a{color:var(--am2)}
+.wrap{max-width:800px;margin:0 auto;padding:0 18px}
+/* HUD */
+.hud{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:#07090c;border-bottom:3px solid var(--am);display:flex;align-items:center;gap:14px;padding:6px 16px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:#07090c;z-index:9}
+.hud .t{font-size:22px;letter-spacing:.04em;color:var(--am);white-space:nowrap}
+.hud .rk{font-size:30px;color:#fff;min-width:64px;text-align:right}
+.bar{flex:1;height:10px;background:#1d232c;transform:skewX(-25deg);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--am),var(--am2))}
+.hud small{font:600 13px 'Barlow',sans-serif;color:var(--mut);white-space:nowrap}
+/* Rap sheet hero */
+.sheet{margin:30px 0 10px;background:var(--pn);border:2px solid var(--am);position:relative}
+.sheet::before{content:"";display:block;height:12px;background:repeating-linear-gradient(-45deg,var(--am) 0 14px,#111 14px 28px)}
+.sheet .in{padding:22px 24px 26px}
+.meta{display:flex;flex-wrap:wrap;gap:6px 22px;font:600 14px 'Barlow',sans-serif;color:var(--mut);border-bottom:1px dashed var(--ln);padding-bottom:12px;margin-bottom:16px}
+.meta b{color:var(--am2);font-weight:600}
+h1{font-size:clamp(54px,13vw,110px);transform:skewX(-8deg);transform-origin:left;color:#fff;text-shadow:3px 3px 0 #000}
+h1 span{display:block;color:var(--am);font-size:.6em;letter-spacing:.03em}
+.lead{font-size:19px;color:#cdd3de;max-width:60ch;margin:14px 0 0}
+.stamp{display:inline-block;margin-top:18px;border:3px solid var(--rd);color:var(--rd);font:700 28px 'Teko',sans-serif;letter-spacing:.1em;padding:0 14px;transform:rotate(-4deg)}
+/* Secciones */
+section{padding:46px 0 6px}
+.rh{display:flex;align-items:flex-end;gap:14px;border-bottom:3px solid var(--am);padding-bottom:8px;margin-bottom:12px}
+.rh .n{font:700 clamp(64px,16vw,96px)/.8 'Teko',sans-serif;color:var(--am);transform:skewX(-8deg);text-shadow:3px 3px 0 #000}
+.rh small{display:block;font:600 15px 'Barlow',sans-serif;color:var(--mut);margin-bottom:2px}
+h2{font-size:clamp(32px,7vw,48px);color:#fff}
+h3{font-size:28px;color:var(--am2);margin:26px 0 4px}
+p{margin:12px 0;max-width:68ch}
+code{font:600 .88em ui-monospace,Menlo,Consolas,monospace;background:var(--pn2);color:var(--am2);padding:1px 6px}
+pre{margin:16px 0;background:#06080b;border:1px solid var(--ln);border-left:5px solid var(--am);padding:14px 16px;overflow-x:auto;font:14px/1.6 ui-monospace,Menlo,Consolas,monospace}
+pre code{background:none;padding:0;color:#dfe5ee;font-weight:400}
+.k{color:var(--am);font-weight:700}.c{color:var(--mut);font-style:italic}
+/* Menú estilo juego */
+.menu{display:grid;gap:6px;margin:14px 0}
+.menu>div{background:var(--pn);border:1px solid var(--ln);border-left:6px solid var(--am);padding:10px 16px 12px}
+.menu dt,.menu b.t{font:600 25px/1 'Teko',sans-serif;text-transform:uppercase;letter-spacing:.03em;color:#fff}
+.menu dd{margin:3px 0 0;color:#cdd3de;font-size:16px}
+/* Milestones */
+.ms{list-style:none;margin:14px 0;padding:0;display:grid;gap:6px}
+.ms li{background:var(--pn);border:1px solid var(--ln);padding:9px 14px 9px 46px;position:relative}
+.ms li::before{content:"✔";position:absolute;left:12px;top:8px;width:24px;height:24px;background:var(--am);color:#000;font-weight:700;display:grid;place-items:center;font-size:15px}
+.ms b{font:600 21px 'Teko',sans-serif;text-transform:uppercase;color:var(--am2);margin-right:6px}
+/* Blacklist */
+.bl{margin:18px 0;border:1px solid var(--ln);background:var(--pn)}
+.bl div{display:grid;grid-template-columns:64px 1fr;align-items:center;border-bottom:1px solid var(--ln)}
+.bl div:last-child{border:0}
+.bl .n{font:700 38px/1 'Teko',sans-serif;color:var(--am);text-align:center;background:var(--pn2);align-self:stretch;display:grid;place-items:center}
+.bl .one .n{background:var(--am);color:#000}
+.bl span{padding:7px 14px;line-height:1.2}
+.bl strong{display:block;font:600 24px/1 'Teko',sans-serif;text-transform:uppercase;letter-spacing:.04em}
+.bl em{font-style:normal;color:var(--mut);font-size:14px}
+/* Heat */
+.heat{display:flex;align-items:center;gap:6px;margin:16px 0;font:600 20px 'Teko',sans-serif;text-transform:uppercase}
+.heat i{display:block;width:44px;height:16px;transform:skewX(-25deg)}
+.tip{border:1px solid var(--bl);background:rgba(59,125,255,.1);padding:10px 16px;margin:16px 0}
+.tip b{color:#8db4ff}
+.end{margin-top:46px;padding:0 0 22px;background:var(--pn);border:2px solid var(--rd)}
+.end::before{content:"";display:block;height:12px;background:repeating-linear-gradient(-45deg,var(--rd) 0 14px,#111 14px 28px)}
+.end div{padding:6px 24px}
+footer{margin:40px 0 90px;padding-top:18px;border-top:1px solid var(--ln);font-size:15px;color:var(--mut)}
+footer li{margin:8px 0;overflow-wrap:anywhere}
+@media (max-width:520px){body{font-size:16px}.hud small{display:none}.bl div{grid-template-columns:52px 1fr}.sheet .in{padding:18px 16px}}
+</style>
+</head>
+<body>
+<div class="hud"><span class="t">Blacklist</span><div class="bar"><i id="bar"></i></div><small id="pct">Bounty 0%</small><span class="t rk" id="rk">#15</span></div>
+
+<main class="wrap">
+<div class="sheet cut"><div class="in">
+<div class="meta"><span>Rockport Police Dept.</span><span>Expediente: <b>SQL:1999</b></span><span>Sospechoso: <b>Tú</b></span><span>Curso: <b>TI3022</b></span></div>
+<h1>Escalando la<span>Blacklist 15</span></h1>
+<p class="lead">Cómo entender los <code>JOIN</code> de SQL a través de <em>Need for Speed: Most Wanted (2005)</em>. Sube del puesto #15 al #1 uniendo tablas.</p>
+<div class="stamp">Se busca</div>
+</div></div>
+
+<section style="padding-top:34px">
+<p>En una base de datos relacional la información no se guarda en una sola lista gigante: se divide en <strong>tablas independientes</strong> para mantener el orden y la eficiencia. Cuando necesitas cruzar datos de varias tablas para armar un reporte, usas las cláusulas <code>JOIN</code> del estándar <strong>SQL:1999</strong>.</p>
+<p>En <em>Most Wanted</em> llegas a <strong>Rockport</strong> para escalar la <strong>Blacklist</strong>, derrotar a <strong>Clarence “Razor” Callahan</strong> y recuperar tu <strong>BMW M3 GTR</strong>. Por detrás, la policía lleva tu avance en el <em>Rap Sheet</em> (el expediente del Sargento Cross, que también consulta Mia Townsend) cruzando cuatro tablas:</p>
+<dl class="menu">
+<div><dt>Corredores</dt><dd>Los 15 de la Blacklist y tú.</dd></div>
+<div><dt>Autos</dt><dd>Cada vehículo de Rockport.</dd></div>
+<div><dt>Distritos</dt><dd>Rosewood, Camden Beach y Downtown Rockport.</dd></div>
+<div><dt>Niveles de Heat</dt><dd>Los niveles de presión policial, del 1 al 5.</dd></div>
+</dl>
+</section>
+
+<section id="s1" data-rank="15">
+<div class="rh"><span class="n">15</span><div><small>Parte 1</small><h2>Prefijos y alias</h2></div></div>
+<p>Antes de unir tablas, hay que ordenar cómo nombramos tablas y columnas.</p>
+<dl class="menu">
+<div><dt>Prefijos de tabla</dt><dd>Si <code>CORREDORES</code> y <code>AUTOS</code> tienen una columna con el mismo nombre (por ejemplo <code>CAR_ID</code>), debes anteponer el nombre de la tabla para evitar ambigüedad. Aunque los nombres sean distintos, el prefijo mejora el rendimiento: le dice a Oracle dónde buscar cada dato.</dd></div>
+<div><dt>Alias de tabla</dt><dd>Escribe el nombre de la tabla, un espacio y una abreviatura: <code>CORREDORES c</code>, <code>AUTOS a</code>. El código queda más corto y usa menos memoria.</dd></div>
+<div><dt>Reglas de los alias</dt><dd>Hasta 30 caracteres (mejor cortos y claros). Solo valen dentro del <code>SELECT</code> actual. Una vez definido en el <code>FROM</code>, debes usarlo en toda la consulta en lugar del nombre original.</dd></div>
+</dl>
+</section>
+
+<section id="s2" data-rank="10">
+<div class="rh"><span class="n">10</span><div><small>Parte 2</small><h2>INNER JOIN: desbloquea al rival</h2></div></div>
+<p>Para retar a un miembro de la Blacklist, el juego te exige tres cosas a la vez:</p>
+<ul class="ms">
+<li><b>Carreras</b>ganar un número mínimo.</li>
+<li><b>Hitos</b>completar los <em>Milestones</em> de persecución.</li>
+<li><b>Bolsa</b>alcanzar el <em>Bounty</em> requerido.</li>
+</ul>
+<div class="bl">
+<div><span class="n">15</span><span><strong>Sonny</strong><em>VW Golf GTI</em></span></div>
+<div><span class="n">14</span><span><strong>Taz</strong><em>Lexus IS 300</em></span></div>
+<div><span class="n">10</span><span><strong>Baron</strong><em>Porsche Cayman S</em></span></div>
+<div><span class="n">6</span><span><strong>Ming</strong><em>Lamborghini Gallardo</em></span></div>
+<div><span class="n">2</span><span><strong>Bull</strong><em>Mercedes-Benz SLR McLaren</em></span></div>
+<div class="one"><span class="n">1</span><span><strong>Razor</strong><em>El jefe final</em></span></div>
+</div>
+<p>Para saber qué duelos están desbloqueados, o qué auto maneja cada rival, la base usa un <strong><code>INNER JOIN</code></strong> (unión igualitaria). Compara valores idénticos en ambas tablas —normalmente clave primaria con clave ajena— y <strong>muestra solo las filas que coinciden</strong>.</p>
+<p>SQL ofrece varias formas de escribirlo:</p>
+<dl class="menu">
+<div><dt><code>NATURAL JOIN</code></dt><dd>Une automáticamente por todas las columnas con el mismo nombre y tipo de dato. Si se llaman igual pero el tipo difiere, da error.</dd></div>
+<div><dt><code>USING</code></dt><dd>Elige la columna exacta de la unión cuando hay varias con el mismo nombre. Esa columna <strong>no puede llevar prefijo ni alias</strong> en ninguna parte de la consulta (ni en <code>SELECT</code> ni en <code>WHERE</code>), o Oracle lanza <code>ORA-25154</code>.</dd></div>
+<div><dt><code>ON</code></dt><dd>Define a mano la condición de unión, separada de los filtros, y permite unir columnas con nombres distintos. Si se llaman igual, usa alias o prefijos.</dd></div>
+<div><dt>Tres tablas y filtros</dt><dd>Con <code>ON</code> unes tres tablas (SQL:1999 las ejecuta de izquierda a derecha) y ves al <strong>corredor</strong>, su <strong>auto</strong> y el <strong>distrito</strong> en un informe. Para filtrar, agrega <code>WHERE</code> después del <code>ON</code>.</dd></div>
+<div><dt><code>CROSS JOIN</code></dt><dd>Producto cartesiano: todas las combinaciones entre corredores y autos, sin condición de coincidencia.</dd></div>
+</dl>
+<pre><code>-- ON con 3 tablas y filtro WHERE: Blacklist top 10
+SELECT c.racer_id, c.apodo, a.modelo_auto, d.nombre_distrito
+FROM corredores c
+JOIN autos a ON (c.car_id = a.car_id)
+JOIN distritos d ON (a.location_id = d.location_id)
+WHERE c.blacklist_rank &lt;= 10;</code></pre>
+</section>
+
+<section id="s3" data-rank="6">
+<div class="rh"><span class="n">6</span><div><small>Parte 3</small><h2>Autouniones y rangos</h2></div></div>
+<p>A medida que ganas y escapas de las patrullas, el juego resuelve dos relaciones que no cruzan dos tablas distintas con un simple igual.</p>
+<h3>Self-join: la escalera de rivales</h3>
+<p>Todos los corredores, del #15 Sonny al #1 Razor, viven en la <strong>misma tabla</strong> <code>CORREDORES</code>. Cada piloto tiene una columna con el ID del rival superior al que debe vencer. Para ver en una fila al corredor y a su objetivo, unes la tabla <strong>consigo misma</strong> con dos alias (<code>retador</code> y <code>jefe</code>) mediante <code>ON</code>.</p>
+<pre><code>-- Autounión: quién reta a quién
+SELECT retador.apodo AS piloto, jefe.apodo AS siguiente_rival
+FROM corredores retador JOIN corredores jefe
+ON (retador.rival_id = jefe.racer_id);</code></pre>
+<h3>Non-equijoin: Bolsa y Heat Level</h3>
+<p>Una unión no igualitaria usa un operador distinto de <code>=</code>, como <code>BETWEEN</code> para evaluar rangos. Mientras más destrozos causas y más <em>Bounty</em> sumas, más sube tu nivel de búsqueda: del <strong>Heat 1</strong> (patrullas locales en Civic Cruiser) al <strong>Heat 5</strong> (Corvettes C6.R liderados por Cross).</p>
+<div class="heat" aria-label="Heat 1 a 5">Heat <i style="background:#4bd685"></i><i style="background:#c8d63c"></i><i style="background:#f5a300"></i><i style="background:#ff6a1f"></i><i style="background:#e0202c"></i></div>
+<p>Se une <code>CORREDORES</code> con la tabla de niveles y se verifica si la bolsa está entre el mínimo y el máximo de cada grado.</p>
+<div class="tip"><b>¿Por qué nadie sale duplicado?</b> Porque los rangos de la tabla de niveles no se solapan y todos los valores de bolsa caen dentro de los límites.</div>
+<pre><code>-- Non-equijoin: nivel de persecución según la Bolsa
+SELECT c.apodo, c.bolsa_bounty, n.nivel_heat
+FROM corredores c JOIN niveles_persecucion n
+ON c.bolsa_bounty BETWEEN n.bounty_minimo AND n.bounty_maximo;</code></pre>
+</section>
+
+<section id="s4" data-rank="2">
+<div class="rh"><span class="n">2</span><div><small>Parte 4</small><h2>OUTER JOIN: sin pareja</h2></div></div>
+<p>En un <code>INNER JOIN</code>, todo registro sin pareja exacta queda fuera. Pero en <em>Most Wanted</em> pasan cosas así: Razor sabotea tu BMW M3 GTR y te quedas sin auto (<code>CAR_ID</code> en <code>null</code>), o hay autos del concesionario o ganados con <em>Pink Slips</em> que ningún rival conduce.</p>
+<p>Para incluir también las filas sin pareja existen tres uniones <code>OUTER</code>:</p>
+<dl class="menu">
+<div><dt><code>LEFT OUTER JOIN</code>: el corredor sin auto</dt><dd>Trae todas las filas de la tabla izquierda (<code>CORREDORES</code>) aunque no tengan coincidencia en <code>AUTOS</code>. Verás a toda la Blacklist con sus autos y tu perfil con el auto en <code>(null)</code> cuando pierdes el M3 GTR.</dd></div>
+<div><dt><code>RIGHT OUTER JOIN</code>: autos sin piloto</dt><dd>Trae todas las filas de la tabla derecha (<code>AUTOS</code>) aunque no tengan corredor. Lista todos los vehículos de Rockport, incluidos los del concesionario o el <em>Safe House</em>, con el piloto en <code>(null)</code>.</dd></div>
+<div><dt><code>FULL OUTER JOIN</code>: auditoría total</dt><dd>Combina ambos: todas las filas de <code>CORREDORES</code> y de <code>AUTOS</code>. En un reporte ves a la Blacklist con sus autos, a los pilotos a pie y a los autos libres.</dd></div>
+</dl>
+<pre><code>-- FULL OUTER JOIN: todos los pilotos y todos los autos
+SELECT c.apodo, a.car_id, a.modelo_auto
+FROM corredores c FULL OUTER JOIN autos a
+ON (c.car_id = a.car_id);</code></pre>
+</section>
+
+<section id="s5" data-rank="1">
+<div class="end cut"><div>
+<div class="rh" style="border-color:var(--rd)"><span class="n" style="color:var(--rd)">1</span><div><small>Meta final</small><h2>Conclusión</h2></div></div>
+<p>Dominar los <code>JOIN</code> del estándar SQL:1999 es clave para convertir datos aislados en información útil. Igual que en <em>Most Wanted</em> cada carrera, hito y punto de bolsa se conectan para abrirte el camino al #1, los <code>JOIN</code> te dan control exacto sobre qué datos cruzar.</p>
+<p>Los <strong>INNER JOIN</strong>, las autouniones y las uniones por rangos validan requisitos estrictos y jerarquías entre registros activos. Los <strong>OUTER JOIN</strong> (<code>LEFT</code>, <code>RIGHT</code> y <code>FULL</code>) garantizan que nadie quede fuera del radar: ni un corredor sin vehículo ni un auto esperando en el garaje.</p>
+</div></div>
+</section>
+
+<footer>
+<h3 style="margin-top:0">Bibliografía</h3>
+<ul style="padding-left:18px">
+<li><strong>INACAP.</strong> (2026). <em>Lección 2 de 4: 1. Uniones INNER y OUTER</em> [Material de estudio del curso TI3022]. Repositorio Virtual INACAP. <a href="https://virtual.inacap.cl/repositorio/TI3022_TFL/U2/TI3022_U2_S9/content/index.php?sci=fdaef5483431df9bba46d1b29c4ad2bc#/" target="_blank" rel="noopener">Enlace</a></li>
+<li><strong>Need for Speed Wiki.</strong> (s.f.). <em>Blacklist (Need for Speed: Most Wanted) &amp; Career Progression</em>. Fandom. <a href="https://nfs.fandom.com/wiki/Blacklist" target="_blank" rel="noopener">nfs.fandom.com/wiki/Blacklist</a></li>
+<li><strong>Oracle Corporation.</strong> (s.f.). <em>Oracle Database SQL Language Reference: Joins (SQL:1999 Standard Syntax)</em>. Oracle Help Center. <a href="https://docs.oracle.com/en/database/oracle/oracle-database/" target="_blank" rel="noopener">docs.oracle.com</a></li>
+</ul>
+<p>Blog educativo no oficial. <em>Need for Speed: Most Wanted</em> es marca de Electronic Arts.</p>
+</footer>
+</main>
+<script>
+(function(){
+var secs=[].slice.call(document.querySelectorAll('section[data-rank]')),bar=document.getElementById('bar'),pct=document.getElementById('pct'),rk=document.getElementById('rk');
+function upd(){
+var h=document.documentElement,max=h.scrollHeight-h.clientHeight,p=max>0?Math.min(1,Math.max(0,(window.scrollY||h.scrollTop)/max)):0;
+bar.style.width=(p*100)+'%';pct.textContent='Bounty '+Math.round(p*100)+'%';
+var cur='15',line=window.innerHeight*0.4;
+secs.forEach(function(s){if(s.getBoundingClientRect().top<line)cur=s.dataset.rank});
+rk.textContent='#'+cur;}
+window.addEventListener('scroll',upd,{passive:true});window.addEventListener('resize',upd);upd();
+document.querySelectorAll('pre code').forEach(function(el){
+var t=el.innerHTML;
+t=t.replace(/(--[^\n]*)/g,'<span class="c">$1</span>');
+t=t.replace(/\b(SELECT|FROM|JOIN|FULL OUTER JOIN|ON|WHERE|AS|BETWEEN|AND)\b(?![^<]*<\/span>)/g,'<span class="k">$1</span>');
+el.innerHTML=t;});
+})();
+</script>
+</body>
+</html>
